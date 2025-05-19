@@ -1,11 +1,38 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import BookContext from "../context/BookContext";
+import StudentContext from "../context/StudentContext";
 
 function Transactions() {
-  const [books, setBooks] = useState([]);
-  const [students, setStudents] = useState([]);
+  const {
+    currentBooksB,
+    searchQueryB,
+    handlePageChangeB,
+    getPageNumbersB,
+    handleNextB,
+    handlePreviousB,
+    fetchBooks,
+    indexOfFirstBookB,
+    setSearchQueryB,
+    totalPagesB,
+    currentPageB,
+  } = useContext(BookContext);
+
+  const {
+    currentStudentsS,
+    handlePageChangeS,
+    getPageNumbersS,
+    handleNextS,
+    setSearchQueryS,
+    searchQueryS,
+    handlePreviousS,
+    indexOfFirstStudentS,
+    currentPageS,
+    fetchStudents,
+    totalPagesS,
+  } = useContext(StudentContext);
 
   useEffect(() => {
     fetchBooks();
@@ -13,57 +40,107 @@ function Transactions() {
     fetchTransactions();
   }, []);
 
-  const fetchBooks = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/book/allBooks"); // GET route
-      setBooks(res.data);
-    } catch (err) {
-      console.error("Error fetching Book:", err);
-    }
-  };
-  const fetchStudents = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/student/allStudents"); // GET route
-      setStudents(res.data);
-    } catch (err) {
-      console.error("Error fetching students:", err);
-    }
-  };
-
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredBooks = books.filter((book) => {
-    const matchesSearch =
-      book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      book.auther.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesSearch;
-  });
-
-  const filteredStudents = students.filter((student) => {
-    const matchesSearch =
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.mobile.toString().includes(searchQuery);
-
-    return matchesSearch;
-  });
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
-
-  // Calculate indexes
-  const indexOfLast = currentPage * rowsPerPage;
-  const indexOfFirst = indexOfLast - rowsPerPage;
-  const currentBooks = filteredBooks.slice(indexOfFirst, indexOfLast);
-  const currentStudents = filteredStudents.slice(indexOfFirst, indexOfLast);
-
   const [step, setStep] = useState(1);
 
+  const [selectedBooks, setSelectedBooks] = useState([]);
+
+  const handleCheckboxChange = (e, book) => {
+    if (e.target.checked) {
+      setSelectedBooks([...selectedBooks, book]); // store full book object
+    } else {
+      setSelectedBooks(selectedBooks.filter((b) => b._id !== book._id));
+    }
+  };
+
+  const [selectedStudent, setSelectedStudent] = useState();
+
+  const handleRadioChecked = (e) => {
+    const studentId = e.target.value;
+    const student = currentStudentsS.find((s) => s._id === studentId);
+    setSelectedStudent(student); // This stores full student object
+  };
+
+  const [dueDate, setDueDate] = useState();
+
+  const [borrowData, setBorrowData] = useState({
+    name: "",
+    title: "",
+    borrow_date: "",
+    due_date: "",
+    return_date: "",
+    teacher: "",
+    studentId: "",
+  });
+
+  const handleSave = async () => {
+    const borrowDate = new Date().toLocaleDateString(); // today's date
+
+    // Create one borrowData entry per book
+    const postData = selectedBooks.map((book) => ({
+      name: selectedStudent.name,
+      title: book.title,
+      borrow_date: borrowDate,
+      due_date: dueDate.toLocaleDateString(), // assuming dueDate is a Date object
+      return_date: "", // default
+      teacher: "Admin", // if you have it
+      studentId: selectedStudent._id,
+    }));
+    try {
+      await Promise.all(
+        postData.map((entry) =>
+          axios.post("http://localhost:5000/transaction/borrow", entry)
+        )
+      );
+
+      // Reset everything
+      setBorrowData({
+        name: "",
+        title: "",
+        borrow_date: "",
+        due_date: "",
+        return_date: "",
+        teacher: "",
+        studentId: "",
+      });
+
+      setSelectedBooks([]);
+      setSelectedStudent(null);
+      setDueDate(null);
+      setStep(1); // Reset to step 1
+
+      alert("Book(s) borrowed successfully!");
+      fetchTransactions();
+    } catch (err) {
+      console.error("Error while borrowing book(s):", err);
+      alert("Something went wrong while borrowing.");
+    }
+  };
+
+  const [transaction, setTransaction] = useState([]);
+
+  const fetchTransactions = async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:5000/transaction/allTransctions"
+      ); // GET route
+      setTransaction(res.data);
+    } catch (err) {
+      console.error("Error fetching transaction:", err);
+    }
+  };
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 12;
+  // Calculate indexes
+  const indexOfLastTransaction = currentPage * rowsPerPage;
+  const indexOfFirstTransaction = indexOfLastTransaction - rowsPerPage;
+  const currentTransaction = transaction.slice(
+    indexOfFirstTransaction,
+    indexOfLastTransaction
+  );
+
   // Calculate total pages
-  let totalPages = Math.ceil(filteredBooks.length / rowsPerPage);
-  if (step === 2) {
-    totalPages = Math.ceil(filteredStudents.length / rowsPerPage);
-  }
+  const totalPages = Math.ceil(transaction.length / rowsPerPage);
 
   const pageLimit = 5;
   const getPageNumbers = () => {
@@ -96,89 +173,95 @@ function Transactions() {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
 
-  const [selectedBooks, setSelectedBooks] = useState([]);
+  // const returnBDate = new Date().toLocaleDateString();
 
-  const handleCheckboxChange = (e, book) => {
-    if (e.target.checked) {
-      setSelectedBooks([...selectedBooks, book]); // store full book object
-    } else {
-      setSelectedBooks(selectedBooks.filter((b) => b._id !== book._id));
-    }
-  };
-
-  const [selectedStudent, setSelectedStudent] = useState();
-
-  const handleRadioChecked = (e) => {
-    const studentId = e.target.value;
-    const student = currentStudents.find((s) => s._id === studentId);
-    setSelectedStudent(student); // This stores full student object
-  };
-
-  const [dueDate, setDueDate] = useState();
-
-  const [borrowData, setBorrowData] = useState({
+  const [returnBook, setReturnBook] = useState({
+    _id: "",
     name: "",
     title: "",
     borrow_date: "",
     due_date: "",
     return_date: "",
     teacher: "",
+    studentId: "",
   });
 
-  const handleSave = async () => {
-    // const borrowDate = new Date().toLocaleDateString(); // today's date
-    const borrowDate = new Date().toISOString().split('T')[0]; // '2025-04-21'
+  const handleEditClickT = (transaction) => {
+    setReturnBook(transaction);
+  };
 
-
-    // Create one borrowData entry per book
-    const postData = selectedBooks.map((book) => ({
-      name: selectedStudent.name,
-      title: book.title,
-      borrow_date: borrowDate,
-      due_date: dueDate.toLocaleDateString(), // assuming dueDate is a Date object
-      return_date: "", // default
-      teacher: "Admin", // if you have it
-    }));
+  const handleUpdateTransaction = async () => {
     try {
-      await Promise.all(
-        postData.map((entry) =>
-          axios.post("http://localhost:5000/transaction/borrow", entry)
-        )
+      const { _id, ...updateData } = returnBook;
+      const response = await axios.put(
+        `http://localhost:5000/transaction/${_id}`,
+        updateData
       );
 
-      // Reset everything
-      setBorrowData({
-        name: "",
-        title: "",
-        borrow_date: "",
-        due_date: "",
-        return_date: "",
-        teacher: "",
-      });
-
-      setSelectedBooks([]);
-      setSelectedStudent(null);
-      setDueDate(null);
-      setStep(1); // Reset to step 1
-
-      alert("Book(s) borrowed successfully!");
-    } catch (err) {
-      console.error("Error while borrowing book(s):", err);
-      alert("Something went wrong while borrowing.");
+      if (response.status === 200) {
+        console.log("Book Return successfully");
+        fetchTransactions();
+        if (returnBook.studentId) {
+          await axios.put(
+            `http://localhost:5000/student/increment-reading/${returnBook.studentId}`
+          );
+          console.log("Student status incremented successfully");
+          fetchStudents();
+        } else {
+          console.error("No studentId found for this transaction");
+        }
+      }
+    } catch (error) {
+      console.error("Error in return Book", error);
     }
   };
 
-  const [transaction, setTransaction] = useState([]);
+  const returnTransactions = transaction.filter(
+    (transaction) => transaction.return_date === null
+  );
 
-  const fetchTransactions = async () => {
-    try {
-      const res = await axios.get(
-        "http://localhost:5000/transaction/allTransctions"
-      ); // GET route
-      setTransaction(res.data);
-    } catch (err) {
-      console.error("Error fetching transaction:", err);
+  const [currentPageT, setCurrentPageT] = useState(1);
+  const rowsPerPageT = 10;
+  // Calculate indexes
+  const indexOfLastTransactionT = currentPageT * rowsPerPageT;
+  const indexOfFirstTransactionT = indexOfLastTransactionT - rowsPerPageT;
+  const currentTransactionT = returnTransactions.slice(
+    indexOfFirstTransactionT,
+    indexOfLastTransactionT
+  );
+
+  // Calculate total pages
+  const totalPagesT = Math.ceil(returnTransactions.length / rowsPerPageT);
+
+  const pageLimitT = 5;
+  const getPageNumbersT = () => {
+    const totalPageNumbersT = Math.min(pageLimitT, totalPagesT);
+    let startPageT = Math.max(currentPageT - Math.floor(pageLimitT / 2), 1);
+    let endPageT = startPageT + totalPageNumbersT - 1;
+
+    if (endPageT > totalPagesT) {
+      endPageT = totalPagesT;
+      startPageT = Math.max(endPageT - totalPageNumbersT + 1, 1);
     }
+
+    const pageNumbersT = [];
+    for (let i = startPageT; i <= endPageT; i++) {
+      pageNumbersT.push(i);
+    }
+
+    return pageNumbersT;
+  };
+
+  const handlePageChangeT = (pageNumber) => {
+    setCurrentPageT(pageNumber);
+  };
+
+  const handlePreviousT = () => {
+    if (currentPageT > 1) setCurrentPageT(currentPageT - 1);
+  };
+
+  const handleNextT = () => {
+    if (currentPageT < totalPagesT) setCurrentPageT(currentPageT + 1);
   };
 
   return (
@@ -233,8 +316,10 @@ function Transactions() {
                                 type="search"
                                 placeholder="Search"
                                 aria-label="Search"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                value={searchQueryB}
+                                onChange={(e) =>
+                                  setSearchQueryB(e.target.value)
+                                }
                               />
                             </form>
                           </div>
@@ -254,7 +339,7 @@ function Transactions() {
                               </tr>
                             </thead>
                             <tbody>
-                              {currentBooks.map((book, index) => (
+                              {currentBooksB.map((book, index) => (
                                 <tr key={book._id}>
                                   <th>
                                     <input
@@ -267,7 +352,7 @@ function Transactions() {
                                     />
                                   </th>
                                   <th scope="row">
-                                    {indexOfFirst + index + 1}
+                                    {indexOfFirstBookB + index + 1}
                                   </th>
                                   <td>{book.title}</td>
                                   <td>{book.auther}</td>
@@ -284,27 +369,27 @@ function Transactions() {
                           <ul className="pagination">
                             <li
                               className={`page-item ${
-                                currentPage === 1 ? "disabled" : ""
+                                currentPageB === 1 ? "disabled" : ""
                               }`}
                             >
                               <button
                                 className="page-link"
-                                onClick={handlePrevious}
+                                onClick={handlePreviousB}
                               >
                                 Previous
                               </button>
                             </li>
 
-                            {getPageNumbers().map((pageNumber) => (
+                            {getPageNumbersB().map((pageNumber) => (
                               <li
                                 key={pageNumber}
                                 className={`page-item ${
-                                  pageNumber === currentPage ? "active" : ""
+                                  pageNumber === currentPageB ? "active" : ""
                                 }`}
                               >
                                 <button
                                   className="page-link"
-                                  onClick={() => handlePageChange(pageNumber)}
+                                  onClick={() => handlePageChangeB(pageNumber)}
                                 >
                                   {pageNumber}
                                 </button>
@@ -313,12 +398,12 @@ function Transactions() {
 
                             <li
                               className={`page-item ${
-                                currentPage === totalPages ? "disabled" : ""
+                                currentPageB === totalPagesB ? "disabled" : ""
                               }`}
                             >
                               <button
                                 className="page-link"
-                                onClick={handleNext}
+                                onClick={handleNextB}
                               >
                                 Next
                               </button>
@@ -343,8 +428,10 @@ function Transactions() {
                                 type="search"
                                 placeholder="Search"
                                 aria-label="Search"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                value={searchQueryS}
+                                onChange={(e) =>
+                                  setSearchQueryS(e.target.value)
+                                }
                               />
                             </form>
                           </div>
@@ -363,7 +450,7 @@ function Transactions() {
                               </tr>
                             </thead>
                             <tbody>
-                              {currentStudents.map((student, index) => (
+                              {currentStudentsS.map((student, index) => (
                                 <tr key={student._id}>
                                   <th>
                                     <input
@@ -378,7 +465,7 @@ function Transactions() {
                                     />
                                   </th>
                                   <th scope="row">
-                                    {indexOfFirst + index + 1}
+                                    {indexOfFirstStudentS + index + 1}
                                   </th>
                                   <td>{student.roll_no}</td>
                                   <td>{student.name}</td>
@@ -394,27 +481,27 @@ function Transactions() {
                           <ul className="pagination">
                             <li
                               className={`page-item ${
-                                currentPage === 1 ? "disabled" : ""
+                                currentPageS === 1 ? "disabled" : ""
                               }`}
                             >
                               <button
                                 className="page-link"
-                                onClick={handlePrevious}
+                                onClick={handlePreviousS}
                               >
                                 Previous
                               </button>
                             </li>
 
-                            {getPageNumbers().map((pageNumber) => (
+                            {getPageNumbersS().map((pageNumber) => (
                               <li
                                 key={pageNumber}
                                 className={`page-item ${
-                                  pageNumber === currentPage ? "active" : ""
+                                  pageNumber === currentPageS ? "active" : ""
                                 }`}
                               >
                                 <button
                                   className="page-link"
-                                  onClick={() => handlePageChange(pageNumber)}
+                                  onClick={() => handlePageChangeS(pageNumber)}
                                 >
                                   {pageNumber}
                                 </button>
@@ -423,12 +510,12 @@ function Transactions() {
 
                             <li
                               className={`page-item ${
-                                currentPage === totalPages ? "disabled" : ""
+                                currentPageS === totalPagesS ? "disabled" : ""
                               }`}
                             >
                               <button
                                 className="page-link"
-                                onClick={handleNext}
+                                onClick={handleNextS}
                               >
                                 Next
                               </button>
@@ -533,14 +620,217 @@ function Transactions() {
                 </div>
               </div>
             </div>
+
             <button
               type="button"
               className="btn btn-primary m-1"
-              // data-bs-toggle="modal"
-              // data-bs-target="#editModal"
+              data-bs-toggle="modal"
+              data-bs-target="#editModal"
             >
               Return
             </button>
+            <div
+              className="modal fade"
+              id="editModal"
+              data-bs-backdrop="static"
+              data-bs-keyboard="false"
+              tabIndex="-1"
+              aria-labelledby="editModalLabel"
+              aria-hidden="true"
+            >
+              <div className="modal-dialog modal-xl">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h1 className="modal-title fs-5" id="editModalLabel">
+                      Return Book
+                    </h1>
+                    <button
+                      type="button"
+                      className="btn-close"
+                      data-bs-dismiss="modal"
+                      aria-label="Close"
+                    ></button>
+                  </div>
+
+                  <div className="modal-body">
+                    <div className="table-responsive">
+                      <table className="table table-bordered">
+                        <thead>
+                          <tr>
+                            <th>Select</th>
+                            <th>Sr.No</th>
+                            <th>Name</th>
+                            <th>Title</th>
+                            <th>Borrow Date</th>
+                            <th>Due Date</th>
+                            <th>Teacher</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentTransactionT.map((transaction, index) => (
+                            <tr key={transaction._id}>
+                              <td>
+                                <button
+                                  className="btn btn-sm btn-warning"
+                                  onClick={() => {
+                                    handleEditClickT(transaction);
+                                  }}
+                                  data-bs-toggle="modal"
+                                  data-bs-target="#editStudentModal"
+                                >
+                                  Edit
+                                </button>
+                              </td>
+                              <th scope="row">{index + 1}</th>
+                              <td>{transaction.name}</td>
+                              <td>{transaction.title}</td>
+                              <td>{transaction.borrow_date}</td>
+                              <td>{transaction.due_date}</td>
+                              <td>{transaction.teacher}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <nav>
+                      <ul className="pagination">
+                        <li
+                          className={`page-item ${
+                            currentPageT === 1 ? "disabled" : ""
+                          }`}
+                        >
+                          <button
+                            className="page-link"
+                            onClick={handlePreviousT}
+                          >
+                            Previous
+                          </button>
+                        </li>
+
+                        {getPageNumbersT().map((pageNumber) => (
+                          <li
+                            key={pageNumber}
+                            className={`page-item ${
+                              pageNumber === currentPageT ? "active" : ""
+                            }`}
+                          >
+                            <button
+                              className="page-link"
+                              onClick={() => handlePageChangeT(pageNumber)}
+                            >
+                              {pageNumber}
+                            </button>
+                          </li>
+                        ))}
+
+                        <li
+                          className={`page-item ${
+                            currentPageT === totalPagesT ? "disabled" : ""
+                          }`}
+                        >
+                          <button className="page-link" onClick={handleNextT}>
+                            Next
+                          </button>
+                        </li>
+                      </ul>
+                    </nav>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      data-bs-dismiss="modal"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              className="modal fade"
+              id="editStudentModal"
+              data-bs-backdrop="static"
+              data-bs-keyboard="false"
+              tabIndex="-1"
+              aria-labelledby="editStudentModalLabel"
+              aria-hidden="true"
+            >
+              <div className="modal-dialog modal-xl">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h1 className="modal-title fs-5" id="editStudentModalLabel">
+                      Return Book
+                    </h1>
+                    <button
+                      type="button"
+                      className="btn-close"
+                      data-bs-dismiss="modal"
+                      aria-label="Close"
+                    ></button>
+                  </div>
+
+                  <div className="modal-body">
+                    <div className="table-responsive">
+                      <table class="table table-bordered">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Title</th>
+                            <th>Borrow Date</th>
+                            <th>Due Date</th>
+                            <th>Return Date</th>
+                            <th>Teacher</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>{returnBook.name}</td>
+                            <td>{returnBook.title}</td>
+                            <td>{returnBook.borrow_date}</td>
+                            <td>{returnBook.due_date}</td>
+                            <td>
+                              <input
+                                type="date"
+                                className="form-control"
+                                value={returnBook?.return_date || ""}
+                                onChange={(e) =>
+                                  setReturnBook({
+                                    ...returnBook,
+                                    return_date: e.target.value,
+                                  })
+                                }
+                              />
+                            </td>
+                            <td>{returnBook.teacher}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      data-bs-dismiss="modal"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      data-bs-dismiss="modal"
+                      onClick={handleUpdateTransaction} // your custom function
+                    >
+                      Update
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="col col-md-6 text-center">
             <input type="date" className="btn btn-secondary m-1" />
@@ -566,7 +856,7 @@ function Transactions() {
               </tr>
             </thead>
             <tbody>
-              {transaction.map((transaction, index) => (
+              {currentTransaction.map((transaction, index) => (
                 <tr key={transaction._id}>
                   <th scope="row">{index + 1}</th>
                   <td>{transaction.name}</td>
@@ -579,6 +869,45 @@ function Transactions() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="">
+          <nav>
+            <ul className="pagination">
+              <li
+                className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+              >
+                <button className="page-link" onClick={handlePrevious}>
+                  Previous
+                </button>
+              </li>
+
+              {getPageNumbers().map((pageNumber) => (
+                <li
+                  key={pageNumber}
+                  className={`page-item ${
+                    pageNumber === currentPage ? "active" : ""
+                  }`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() => handlePageChange(pageNumber)}
+                  >
+                    {pageNumber}
+                  </button>
+                </li>
+              ))}
+
+              <li
+                className={`page-item ${
+                  currentPage === totalPages ? "disabled" : ""
+                }`}
+              >
+                <button className="page-link" onClick={handleNext}>
+                  Next
+                </button>
+              </li>
+            </ul>
+          </nav>
         </div>
       </div>
     </>

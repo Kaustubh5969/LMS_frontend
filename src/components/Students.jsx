@@ -1,172 +1,37 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useEffect, useContext } from "react";
+
+import StudentContext from "../context/StudentContext";
 
 function Students() {
-  const [students, setStudents] = useState([]);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStandard, setSelectedStandard] = useState("All");
-
-  const [formData, setFormData] = useState({
-    roll_no: "",
-    name: "",
-    standard: "",
-    mobile: "",
-  });
+  const {
+    handleNext,
+    getPageNumbers,
+    currentStudents,
+    handleSave,
+    handlePageChange,
+    handlePrevious,
+    handleUpdateStudent,
+    handleEditClick,
+    handleInputChange,
+    editStudent,
+    setEditStudent,
+    fetchStudents,
+    handleDelete,
+    handleCheckboxChange,
+    setSelectedStandard,
+    setSearchQuery,
+    formData,
+    indexOfFirstStudent,
+    currentPage,
+    totalPages,
+    selectedStandard,
+    searchQuery,
+    filteredStudents,
+  } = useContext(StudentContext);
 
   useEffect(() => {
     fetchStudents();
   }, []);
-
-  const fetchStudents = async () => {
-    try {
-      const res = await axios.get(
-        "http://localhost:5000/student/allStudents"
-      ); // GET route
-      setStudents(res.data);
-    } catch (err) {
-      console.error("Error fetching students:", err);
-    }
-  };
-
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = async () => {
-    try {
-      await axios.post("http://localhost:5000/student/addNewStudent", formData); // your POST route
-      fetchStudents();
-      setFormData({
-        roll_no: "",
-        name: "",
-        standard: "",
-        mobile: "",
-      }); // Reset form
-      alert("Student Added successfully");
-    } catch (err) {
-      console.error("Error adding student:", err);
-    }
-  };
-
-  const filteredStudents = students.filter((student) => {
-    const matchesStandard =
-      selectedStandard === "All" ||
-      `${student.standard}` === selectedStandard ||
-      `${student.standard}` === selectedStandard;
-    const matchesSearch =
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.mobile.toString().includes(searchQuery);
-
-    return matchesStandard && matchesSearch;
-  });
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 12;
-
-  // Calculate indexes
-  const indexOfLastStudent = currentPage * rowsPerPage;
-  const indexOfFirstStudent = indexOfLastStudent - rowsPerPage;
-  const currentStudents = filteredStudents.slice(
-    indexOfFirstStudent,
-    indexOfLastStudent
-  );
-
-  // Calculate total pages
-  const totalPages = Math.ceil(filteredStudents.length / rowsPerPage);
-
-  const pageLimit = 5;
-  const getPageNumbers = () => {
-    const totalPageNumbers = Math.min(pageLimit, totalPages);
-    let startPage = Math.max(currentPage - Math.floor(pageLimit / 2), 1);
-    let endPage = startPage + totalPageNumbers - 1;
-
-    if (endPage > totalPages) {
-      endPage = totalPages;
-      startPage = Math.max(endPage - totalPageNumbers + 1, 1);
-    }
-
-    const pageNumbers = [];
-    for (let i = startPage; i <= endPage; i++) {
-      pageNumbers.push(i);
-    }
-
-    return pageNumbers;
-  };
-
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
-
-  const handlePrevious = () => {
-    if (currentPage > 1) setCurrentPage(currentPage - 1);
-  };
-
-  const handleNext = () => {
-    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-  };
-
-  const [selectedStudents, setSelectedStudents] = useState([]);
-
-  const handleCheckboxChange = (e) => {
-    const id = e.target.value;
-    if (e.target.checked) {
-      setSelectedStudents([...selectedStudents, id]);
-    } else {
-      setSelectedStudents(selectedStudents.filter((sid) => sid !== id));
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      const response = await axios.delete(
-        "http://localhost:5000/student/delete",
-        {
-          data: { ids: selectedStudents },
-        }
-      );
-
-      if (response.status === 200) {
-        alert("Students deleted successfully");
-
-        fetchStudents();
-
-        setSelectedStudents([]); // Clear selected
-      }
-    } catch (error) {
-      console.error("Error deleting students", error);
-    }
-  };
-
-  const [editStudent, setEditStudent] = useState({
-    _id: "",
-    roll_no: "",
-    name: "",
-    standard: "",
-    mobile: "",
-  });
-
-  const handleEditClick = (student) => {
-    setEditStudent(student);
-  };
-
-  const handleUpdateStudent = async () => {
-    try {
-      const { _id, ...updateData } = editStudent;
-      const response = await axios.put(
-        `http://localhost:5000/student/${_id}`,
-        updateData
-      );
-
-      if (response.status === 200) {
-        console.log("Student updated successfully");
-        fetchStudents(); // re-fetch students list
-      }
-    } catch (error) {
-      console.error("Error updating student", error);
-    }
-  };
-
   return (
     <>
       <div className="container mt-5">

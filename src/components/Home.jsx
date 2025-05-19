@@ -1,13 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
+import LSContext from "../context/LSContext";
 
 function Home() {
   const [books, setBooks] = useState([]);
   const [students, setStudents] = useState([]);
 
+  const { ToastContainer, notify, ls, setLs } = useContext(LSContext);
+
   useEffect(() => {
     fetchBooks();
     fetchStudents();
+  }, []);
+
+  useEffect(() => {
+    if (ls == true) {
+      notify();
+      setLs(false);
+    }
   }, []);
 
   const fetchBooks = async () => {
@@ -32,7 +42,7 @@ function Home() {
 
   return (
     <>
-      <div className="container-fluid mt-5">
+      <div className="container-fluid mt-5 position-relative">
         <div className="row row-cols-1 row-cols-md-2 pt-4 g-3">
           <div className="col col-md-8 p-3">
             <div className="table-responsive">
@@ -114,6 +124,7 @@ function Home() {
           </div>
         </div>
       </div>
+      <ToastContainer position="top-right" autoClose={3000} />
     </>
   );
 }
