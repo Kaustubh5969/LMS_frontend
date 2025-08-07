@@ -37,7 +37,7 @@ const BookContextProvider = ({ children }) => {
         price: "",
         copies: "",
       });
-      alert("Book Added successfully");
+      // alert("Book Added successfully");
     } catch (err) {
       console.error("Error adding Book:", err);
     }
@@ -175,7 +175,7 @@ const BookContextProvider = ({ children }) => {
       });
 
       if (response.status === 200) {
-        alert("Book deleted successfully");
+        // alert("Book deleted successfully");
 
         fetchBooks();
 

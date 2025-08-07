@@ -34,6 +34,9 @@ function Transactions() {
     totalPagesS,
   } = useContext(StudentContext);
 
+  const storedUser = localStorage.getItem("user");
+  const user = storedUser ? JSON.parse(storedUser) : null;
+
   useEffect(() => {
     fetchBooks();
     fetchStudents();
@@ -82,7 +85,7 @@ function Transactions() {
       borrow_date: borrowDate,
       due_date: dueDate.toLocaleDateString(), // assuming dueDate is a Date object
       return_date: "", // default
-      teacher: "Admin", // if you have it
+      teacher: user.username, // if you have it
       studentId: selectedStudent._id,
     }));
     try {
@@ -192,7 +195,15 @@ function Transactions() {
 
   const handleUpdateTransaction = async () => {
     try {
-      const { _id, ...updateData } = returnBook;
+      const today = new Date().toISOString().split("T")[0];
+
+      const { _id, ...restData } = returnBook;
+
+      const updateData = {
+        ...restData,
+        return_date: today,
+      };
+
       const response = await axios.put(
         `http://localhost:5000/transaction/${_id}`,
         updateData
@@ -217,7 +228,8 @@ function Transactions() {
   };
 
   const returnTransactions = transaction.filter(
-    (transaction) => transaction.return_date === null
+    (transaction) =>
+      transaction.return_date === null && transaction.teacher === user?.username
   );
 
   const [currentPageT, setCurrentPageT] = useState(1);
@@ -262,6 +274,36 @@ function Transactions() {
 
   const handleNextT = () => {
     if (currentPageT < totalPagesT) setCurrentPageT(currentPageT + 1);
+  };
+
+  const [filterType, setFilterType] = useState("All");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [filteredData, setFilteredData] = useState([]); 
+
+  const handleSearch = () => {
+    if (filterType === "All" || !startDate || !endDate) {
+      setFilteredData(currentTransaction); // Show all
+      return;
+    }
+
+    const filtered = currentTransaction.filter((item) => {
+      const rawDate = item[filterType.toLowerCase() + "_date"]; // e.g. item.borrow_date
+      const parsedDate = new Date(rawDate);
+
+      // Convert selected filter inputs to Date
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      // Compare by date only (ignore time)
+      const parsedDateOnly = parsedDate.toISOString().split("T")[0];
+      const startOnly = start.toISOString().split("T")[0];
+      const endOnly = end.toISOString().split("T")[0];
+
+      return parsedDateOnly >= startOnly && parsedDateOnly <= endOnly;
+    });
+
+    setFilteredData(filtered);
   };
 
   return (
@@ -526,13 +568,27 @@ function Transactions() {
                     )}
                     {step === 3 && (
                       <>
-                        {/* <input
-                          type="date"
-                          className="form-control"
-                          value={dueDate}
-                          onChange={(e) => setDueDate(e.target.value)}
-                        /> */}
-                        <Calendar onChange={setDueDate} value={dueDate} />
+                        <div className="row row-cols-1 row-cols-md-3">
+                          <div className="col col-md-4 my-1 align-content-center bg-warning text-dark rounded bg-opacity-25">
+                            <div className="text-center">
+                              <h3>Borrow Date</h3>
+                              <h2>{new Date().toLocaleDateString()}</h2>
+                            </div>
+                          </div>
+                          <div className="col col-md-4 my-1 d-flex justify-content-center">
+                            <Calendar onChange={setDueDate} value={dueDate} />
+                          </div>
+                          <div className="col col-md-4 my-1 align-content-center bg-primary text-dark rounded bg-opacity-25">
+                            <div className="text-center">
+                              <h3>Due Date</h3>
+                              <h2>
+                                {dueDate
+                                  ? dueDate.toLocaleDateString()
+                                  : "No date selected"}
+                              </h2>
+                            </div>
+                          </div>
+                        </div>
                       </>
                     )}
                     {step === 4 && (
@@ -563,7 +619,7 @@ function Transactions() {
                                 </td>
                                 <td>{new Date().toLocaleDateString()}</td>
                                 <td>{dueDate.toLocaleDateString()}</td>
-                                <td>Admin</td>
+                                <td>{user.username}</td>
                               </tr>
                             </tbody>
                           </table>
@@ -623,7 +679,7 @@ function Transactions() {
 
             <button
               type="button"
-              className="btn btn-primary m-1"
+              className="btn btn-danger m-1"
               data-bs-toggle="modal"
               data-bs-target="#editModal"
             >
@@ -790,19 +846,7 @@ function Transactions() {
                             <td>{returnBook.title}</td>
                             <td>{returnBook.borrow_date}</td>
                             <td>{returnBook.due_date}</td>
-                            <td>
-                              <input
-                                type="date"
-                                className="form-control"
-                                value={returnBook?.return_date || ""}
-                                onChange={(e) =>
-                                  setReturnBook({
-                                    ...returnBook,
-                                    return_date: e.target.value,
-                                  })
-                                }
-                              />
-                            </td>
+                            <td>{new Date().toLocaleDateString()}</td>
                             <td>{returnBook.teacher}</td>
                           </tr>
                         </tbody>
@@ -823,7 +867,7 @@ function Transactions() {
                       type="button"
                       className="btn btn-primary"
                       data-bs-dismiss="modal"
-                      onClick={handleUpdateTransaction} // your custom function
+                      onClick={handleUpdateTransaction}
                     >
                       Update
                     </button>
@@ -832,11 +876,40 @@ function Transactions() {
               </div>
             </div>
           </div>
-          <div className="col col-md-6 text-center">
-            <input type="date" className="btn btn-secondary m-1" />
-            <input type="date" className="btn btn-secondary m-1" />
+          <div className="col col-md-9 text-center">
+            <div className="btn border-0">
+              <select
+                className="form-select"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="All">Select Date for filter</option>
+                <option value="borrow">Borrow Date</option> {/* borrow_date */}
+                <option value="due">Due Date</option> {/* due_date */}
+                <option value="return">Return Date</option> {/* return_date */}
+              </select>
+            </div>
+            <input
+              type="date"
+              className="btn btn-secondary m-1"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <input
+              type="date"
+              className="btn btn-secondary m-1"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+
+            <button
+              type="button"
+              className="btn btn-dark m-1"
+              onClick={handleSearch}
+            >
+              Search
+            </button>
           </div>
-          <div className="col col-md-3 text-center"></div>
         </div>
         <hr />
       </div>
@@ -856,14 +929,48 @@ function Transactions() {
               </tr>
             </thead>
             <tbody>
-              {currentTransaction.map((transaction, index) => (
+              {filteredData.map((transaction, index) => (
                 <tr key={transaction._id}>
                   <th scope="row">{index + 1}</th>
                   <td>{transaction.name}</td>
                   <td>{transaction.title}</td>
-                  <td>{transaction.borrow_date}</td>
-                  <td>{transaction.due_date}</td>
-                  <td>{transaction.return_date}</td>
+                  <td>
+                    {transaction.borrow_date
+                      ? new Date(transaction.borrow_date).toLocaleDateString(
+                          "en-US",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )
+                      : ""}
+                  </td>
+                  <td>
+                    {transaction.due_date
+                      ? new Date(transaction.due_date).toLocaleDateString(
+                          "en-US",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )
+                      : ""}
+                  </td>
+                  <td>
+                    {transaction.return_date
+                      ? new Date(transaction.return_date).toLocaleDateString(
+                          "en-US",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )
+                      : ""}
+                    {/* {transaction.return_date} */}
+                  </td>
                   <td>{transaction.teacher}</td>
                 </tr>
               ))}

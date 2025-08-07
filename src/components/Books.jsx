@@ -1,6 +1,7 @@
 import React, { useEffect, useContext } from "react";
 
 import BookContext from "../context/BookContext";
+import LSContext from "../context/LSContext";
 
 function Books() {
   const {
@@ -31,6 +32,9 @@ function Books() {
     editBook,
     setEditBook,
   } = useContext(BookContext);
+
+  const { bookAdd, ToastContainer, bookUpdate, bookDelete } =
+    useContext(LSContext);
 
   useEffect(() => {
     fetchBooks();
@@ -206,7 +210,10 @@ function Books() {
                       type="button"
                       class="btn btn-success"
                       data-bs-dismiss="modal"
-                      onClick={handleSave}
+                      onClick={() => {
+                        handleSave();
+                        bookAdd();
+                      }}
                     >
                       Save
                     </button>
@@ -336,7 +343,10 @@ function Books() {
                     <button
                       type="button"
                       className="btn btn-danger"
-                      onClick={handleDelete}
+                      onClick={() => {
+                        handleDelete();
+                        bookDelete();
+                      }}
                     >
                       Delete
                     </button>
@@ -606,7 +616,10 @@ function Books() {
                       type="button"
                       className="btn btn-primary"
                       data-bs-dismiss="modal"
-                      onClick={handleUpdateBook} // your custom function
+                      onClick={() => {
+                        handleUpdateBook();
+                        bookUpdate();
+                      }} // your custom function
                     >
                       Update
                     </button>
@@ -697,7 +710,7 @@ function Books() {
           </table>
         </div>
 
-        <div className="row row-cols-2">
+        <div className="row row-cols-1 mt-2">
           <div className="col col-md-10">
             <nav>
               <ul className="pagination">
@@ -739,12 +752,12 @@ function Books() {
           </div>
           <div className="col col-md-2 text-end">
             <button className="btn btn-outline-dark">
-              {/* Count: {filteredBooks.length} */}
               Count: {totalCount}
             </button>
           </div>
         </div>
       </div>
+      <ToastContainer position="top-right" autoClose={3000} />
     </>
   );
 }

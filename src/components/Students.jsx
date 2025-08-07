@@ -1,6 +1,7 @@
 import React, { useEffect, useContext } from "react";
 
 import StudentContext from "../context/StudentContext";
+import LSContext from "../context/LSContext";
 
 function Students() {
   const {
@@ -28,6 +29,9 @@ function Students() {
     searchQuery,
     filteredStudents,
   } = useContext(StudentContext);
+
+  const { studAdd, ToastContainer, studUpdate, studDelete } =
+    useContext(LSContext);
 
   useEffect(() => {
     fetchStudents();
@@ -133,7 +137,10 @@ function Students() {
                       type="button"
                       class="btn btn-success"
                       data-bs-dismiss="modal"
-                      onClick={handleSave}
+                      onClick={() => {
+                        handleSave();
+                        studAdd();
+                      }}
                     >
                       Save
                     </button>
@@ -262,7 +269,10 @@ function Students() {
                     <button
                       type="button"
                       className="btn btn-danger"
-                      onClick={handleDelete}
+                      onClick={() => {
+                        handleDelete();
+                        studDelete();
+                      }}
                     >
                       Delete
                     </button>
@@ -502,7 +512,10 @@ function Students() {
                       type="button"
                       className="btn btn-primary"
                       data-bs-dismiss="modal"
-                      onClick={handleUpdateStudent} // your custom function
+                      onClick={() => {
+                        handleUpdateStudent();
+                        studUpdate();
+                      }} // your custom function
                     >
                       Update
                     </button>
@@ -622,6 +635,7 @@ function Students() {
           </div>
         </div>
       </div>
+      <ToastContainer position="top-right" autoClose={3000} />
     </>
   );
 }

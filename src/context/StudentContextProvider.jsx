@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import StudentContext from "./StudentContext";
 import axios from "axios";
+import Students from "../components/Students";
 
 const StudentContextProvider = ({ children }) => {
   const [students, setStudents] = useState([]);
+  const [topstudents, setTopStudents] = useState([]);
 
   const [formData, setFormData] = useState({
     roll_no: "",
@@ -11,10 +13,15 @@ const StudentContextProvider = ({ children }) => {
     standard: "",
     mobile: "",
   });
+
   const fetchStudents = async () => {
     try {
       const res = await axios.get("http://localhost:5000/student/allStudents"); // GET route
       setStudents(res.data);
+
+      const sortedStudents = await res.data.sort((a, b) => b.status - a.status);
+      const topFiveStudents = sortedStudents.slice(0, 3);
+      setTopStudents(topFiveStudents);
     } catch (err) {
       console.error("Error fetching students:", err);
     }
@@ -34,7 +41,7 @@ const StudentContextProvider = ({ children }) => {
         standard: "",
         mobile: "",
       }); // Reset form
-      alert("Student Added successfully");
+      // alert("Student Added successfully");
     } catch (err) {
       console.error("Error adding student:", err);
     }
@@ -173,7 +180,7 @@ const StudentContextProvider = ({ children }) => {
       );
 
       if (response.status === 200) {
-        alert("Students deleted successfully");
+        // alert("Students deleted successfully");
 
         fetchStudents();
 
@@ -206,7 +213,7 @@ const StudentContextProvider = ({ children }) => {
       );
 
       if (response.status === 200) {
-        console.log("Student updated successfully");    
+        console.log("Student updated successfully");
         fetchStudents();
       }
     } catch (error) {
@@ -249,6 +256,8 @@ const StudentContextProvider = ({ children }) => {
         selectedStandard,
         searchQuery,
         filteredStudents,
+        students,
+        topstudents,
       }}
     >
       {children}
